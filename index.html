@@ -99,7 +99,7 @@ main{padding-bottom:max(24px,env(safe-area-inset-bottom))}</style></head><body>
 <div id="modal"></div><div id="toast"></div>
 <script>
 /* ===== DATENLOGIK (alle Beträge in ganzen Cent) ===== */
-const LKEY='pzbd.led',KEY='pzbd.v1',DEF={balance:78493.54,allow:55,min:4800,max:6500,extra:207,start:2023,keep:true};
+const LKEY='pzbd.led',KEY='pzbd.v1',DEF={balance:78493.54,allow:55,min:4800,max:6500,extra:207,start:2023,keep:false};
 const MN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const e100=x=>Math.round(x*100);
 function load(){try{return{...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(x){return{...DEF}}}
@@ -156,7 +156,7 @@ function build(S,sh){
 }
 function gen(S){let sh=0,o;for(let i=0;i<14;i++){o=build(S,sh);if(o.open>=250000&&o.open<=1500000)break;sh=Math.max(-.3,Math.min(.25,sh+(o.open<250000?.015:-.015)))}return o}
 let S=load(),LED=null;try{LED=JSON.parse(localStorage.getItem(LKEY)||'null')}catch(x){}
-let DB=LED&&LED.tx&&LED.tx.length?fin(LED.tx,S,LED.open):(LED=null,gen(S));
+let DB=LED&&LED.tx&&LED.tx.length?fin(LED.tx,{...S,keep:false},LED.open):(LED=null,gen(S));
 //@@UI
 /* ===== DARSTELLUNG ===== */
 const $=s=>document.querySelector(s);
@@ -192,9 +192,9 @@ return`<svg class="vc" viewBox="0 0 540 340" role="img" aria-label="Visa Infinit
 <text x="44" y="297" font-size="15" font-weight="500" letter-spacing="3.5" fill="url(#alt)" ${T}>PAUL ZEISMANN</text>
 <text x="498" y="284" font-size="50" font-weight="900" font-style="italic" text-anchor="end" fill="url(#alt)" ${T}>VISA</text>
 <text x="498" y="307" font-size="12" font-weight="600" letter-spacing="6.5" text-anchor="end" fill="url(#alt)" ${T}>INFINITE</text></svg>`}
-function dash(){const cm=DB.tx.filter(t=>t.y==2026&&t.m==11);
+function dash(){const nw=new Date(),cy=nw.getFullYear(),cn=nw.getMonth()+1,cm=DB.tx.filter(t=>t.y==cy&&t.m==cn),ml=MN[cn-1]+' '+cy;
  return`<p class="hi">Guten Tag, Herr Zeismann</p><div class="hero"><div class="hl"><small>Gesamtsaldo · Premium Privatkonto</small><h1>${eur(DB.end)}</h1><small>Paul Zeismann · **** 4821</small><small>Letzte Aktualisierung: ${today()}</small></div><div class="vcw">${cardSvg()}</div></div>
- <div class="grid"><div class="card"><small>Einnahmen November 2026</small><b class="p">${eur(sm(cm,1))}</b></div><div class="card"><small>Ausgaben November 2026</small><b>${eur(sm(cm,0))}</b></div><div class="card"><small>Aktueller Kontostand</small><b>${eur(DB.end)}</b></div></div>
+ <div class="grid"><div class="card"><small>Einnahmen ${ml}</small><b class="p">${eur(sm(cm,1))}</b></div><div class="card"><small>Ausgaben ${ml}</small><b>${eur(sm(cm,0))}</b></div><div class="card"><small>Aktueller Kontostand</small><b>${eur(DB.end)}</b></div></div>
  <div class="card" style="margin-top:16px"><small>Kontoverlauf, letzte 13 Monatsenden</small>${spark()}</div>
  <h2>Letzte Buchungen</h2><div class="card">${DB.tx.slice(-8).reverse().map(row).join('')}<div class="btns" style="margin-top:12px"><button class="btn" data-go="tx">Alle Umsätze anzeigen</button></div></div>`}
 let Q={q:'',y:'',t:'',s:'d-'},F=[],shown=0,io;
@@ -212,16 +212,15 @@ function list(){const q=Q.q.trim().toLowerCase();
 function more(){$('#list').insertAdjacentHTML('beforeend',F.slice(shown,shown+60).map(row).join(''));shown+=60;const s=$('#sent');if(io&&s){io.unobserve(s);io.observe(s)}}
 function acc(){const i=sm(DB.tx,1),o=sm(DB.tx,0),ok=DB.open+i-o==DB.end;
  return`<h2>Kontodetails</h2><div class="card">${dl([['Kontoinhaber','Paul Zeismann'],['Bank','Meridian Privatbank'],['Kontotyp','Privatkonto · Premium Banking'],['Währung','Euro (EUR)'],['Kontoreferenz','**** 4821'],['Zeitraum der Historie','01.11.'+S.start+' bis '+today()],['Anzahl Buchungen',DB.tx.length],['Anfangsbestand',eur(DB.open)],['Summe Einnahmen','<span class="p">'+eur(i)+'</span>'],['Summe Ausgaben',eur(o)],['Aktueller Kontostand',eur(DB.end)],['Rechenprobe','Anfang + Einnahmen − Ausgaben = Endsaldo '+(ok?'✓':'✗')],['Letzte Aktualisierung',today()]])}</div>`}
-function card(){const cs=DB.tx.filter(t=>t.meth!='Überweisung'&&t.c<0&&t.y==2026&&t.m==11);
+function card(){const nw=new Date(),cy=nw.getFullYear(),cn=nw.getMonth()+1,cs=DB.tx.filter(t=>t.meth!='Überweisung'&&t.c<0&&t.y==cy&&t.m==cn);
  return`<h2>Visa-Karte</h2><div class="vcw">${cardSvg()}</div>
- <div class="card">${dl([['Karteninhaber','Paul Zeismann'],['Kartennummer','**** 4821'],['Kartentyp','Visa Infinite · The Black'],['Status','Aktiv'],['Kartenumsätze Nov. 2026',eur(sm(cs,0))]])}</div>
+ <div class="card">${dl([['Karteninhaber','Paul Zeismann'],['Kartennummer','**** 4821'],['Kartentyp','Visa Infinite · The Black'],['Status','Aktiv'],['Kartenumsätze '+MN[cn-1]+' '+cy,eur(sm(cs,0))]])}</div>
  <h2>Letzte Kartenumsätze</h2><div class="card">${DB.tx.filter(t=>t.txt.startsWith('Kartenzahlung')).slice(-6).reverse().map(row).join('')}</div>`}
 const fv=c=>(c/100).toFixed(2).replace('.',',');
 function set(){const f=(k,l,h,v)=>`<label>${l}<input id="s_${k}" inputmode="decimal" value="${v}"><small>${h}</small></label>`;
  return`<h2>Einstellungen</h2><div class="card"><div class="f">${f('balance','Aktueller Gesamtsaldo (€)','Standard: 78.493,54',fv(DB.end))}${f('allow','Taschengeld monatlich (€)','Standard: 55',S.allow)}${f('min','Monatliches Einkommen Minimum (€)','Standard: 4.800',S.min)}${f('max','Monatliches Einkommen Maximum (€)','Standard: 6.500',S.max)}${f('extra','Zusätzlicher Eingang November 2026 (€)','Standard: 207',S.extra)}${f('start','Startjahr der Historie','2015 bis 2025, Verlauf beginnt im November. Standard: 2023',S.start)}
- <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="s_keep" ${S.keep!==false?'checked':''} style="width:20px;height:20px;margin-top:2px;flex:none"><span>Gesamtsaldo konstant halten<br><small>Bei Änderungen an Buchungen passt sich der Anfangsbestand an, der Endsaldo bleibt gleich.</small></span></label>
  <div class="btns"><button class="btn pri" data-act="apply">Einstellungen übernehmen</button><button class="btn" data-act="reset">Standardwerte wiederherstellen</button></div><div id="msg"></div></div></div>
- <h2>Buchungen bearbeiten</h2><div class="card"><small>Buchung antippen, um Datum, Händler, Kategorie oder Betrag zu ändern oder sie zu löschen. Änderungen werden gespeichert.</small><div class="btns" style="margin-top:10px"><button class="btn pri" data-act="eadd">+ Neue Buchung</button></div></div>${flt()}`}
+ <h2>Buchungen bearbeiten</h2><div class="card"><small>Buchung antippen, um Datum, Händler, Kategorie oder Betrag zu ändern oder sie zu löschen. Der Kontostand passt sich an: Einnahmen erhöhen ihn, Ausgaben senken ihn. Änderungen werden gespeichert.</small><div class="btns" style="margin-top:10px"><button class="btn pri" data-act="eadd">+ Neue Buchung</button></div></div>${flt()}`}
 const num=v=>{v=String(v).replace(/[\s€]/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return v===''?NaN:Number(v)};
 function msg(t,err){const m=$('#msg');if(m){m.textContent=t;m.className=err?'err':''}}
 let EID=0;
@@ -231,7 +230,7 @@ function clearLed(){LED=null;try{localStorage.removeItem(LKEY)}catch(x){}}
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),3500)}
 function keepRender(){const y=scrollY;render();scrollTo(0,y)}
 function reset(){if(LED&&!confirm('Alle Änderungen und eigenen Buchungen verwerfen?'))return;S={...DEF};wr(KEY,S);clearLed();DB=gen(S);Q.y='';render();msg('Standardwerte wiederhergestellt. Endsaldo '+eur(DB.end)+'.')}
-function apply(){const g=k=>num($('#s_'+k).value),n={balance:g('balance'),allow:g('allow'),min:g('min'),max:g('max'),extra:g('extra'),start:Math.round(g('start')),keep:$('#s_keep').checked};let er='';
+function apply(){const g=k=>num($('#s_'+k).value),n={balance:g('balance'),allow:g('allow'),min:g('min'),max:g('max'),extra:g('extra'),start:Math.round(g('start')),keep:false};let er='';
  if(Object.values(n).some(isNaN))er='Bitte nur gültige Zahlen eingeben, z. B. 5.200,50.';
  else if(n.min<0||n.max<0||n.allow<0||n.extra<0)er='Beträge dürfen nicht negativ sein.';
  else if(n.min>n.max)er='Das Minimum darf nicht größer als das Maximum sein.';
@@ -240,9 +239,9 @@ function apply(){const g=k=>num($('#s_'+k).value),n={balance:g('balance'),allow:
  const rg=['allow','min','max','extra','start'].some(k=>n[k]!==S[k]);
  if(rg&&LED&&!confirm('Diese Änderung berechnet die Umsatzhistorie neu. Manuelle Buchungsänderungen gehen dabei verloren. Fortfahren?'))return;
  S=n;wr(KEY,S);
- if(rg||!LED){clearLed();DB=gen(S)}else{DB=fin(DB.tx,{...S,keep:S.keep||e100(S.balance)!==DB.end},DB.open);saveLed()}
+ if(rg||!LED){clearLed();DB=gen(S)}else{DB=fin(DB.tx,{...S,keep:e100(S.balance)!==DB.end},DB.open);saveLed()}
  Q.y='';render();msg('Einstellungen übernommen. '+DB.tx.length+' Buchungen, Endsaldo '+eur(DB.end)+'.')}
-function edit(id){const t=id?DB.tx[id-1]:{y:2026,m:11,d:3,t:600,name:'',cat:'Sonstiges',c:-1000,meth:'Kartenzahlung',txt:''};EID=id;
+function edit(id){const t=id?DB.tx[id-1]:(()=>{const n=new Date();return{y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate(),t:n.getHours()*60+n.getMinutes(),name:'',cat:'Einkommen',c:1000,meth:'Überweisung',txt:''}})();EID=id;
  const o=(v,l,sel)=>`<option value="${v}" ${sel?'selected':''}>${l}</option>`;
  $('#modal').innerHTML=`<div class="sheet"><button class="x" data-close aria-label="Schließen">×</button><h3>${id?'Buchung bearbeiten':'Neue Buchung'}</h3><div class="f" style="max-width:none;margin-top:12px">
  <label>Datum<input id="e_d" type="date" value="${t.y}-${p2(t.m)}-${p2(t.d)}"></label><label>Uhrzeit<input id="e_t" type="time" value="${p2(Math.floor(t.t/60))}:${p2(t.t%60)}"></label>
@@ -259,8 +258,8 @@ function esave(){const d=$('#e_d').value.split('-').map(Number),tm=($('#e_t').va
  if(!(a>0))return $('#emsg').textContent='Bitte einen Betrag größer 0 eingeben.';
  const r={y:d[0],m:d[1],d:d[2],t:tm[0]*60+tm[1],name:n,cat:$('#e_c').value.trim()||'Sonstiges',c:k*e100(a),meth:me,txt:$('#e_x').value.trim()||me+' '+n};
  if(EID)Object.assign(DB.tx[EID-1],r);else DB.tx.push(r);
- DB=fin(DB.tx,S,DB.open);saveLed();$('#modal').classList.remove('on');keepRender();toast('Buchung gespeichert · Endsaldo '+eur(DB.end))}
-function edel(){if(DB.tx.length<2||!confirm('Diese Buchung wirklich löschen?'))return;DB.tx.splice(EID-1,1);DB=fin(DB.tx,S,DB.open);saveLed();$('#modal').classList.remove('on');keepRender();toast('Buchung gelöscht · Endsaldo '+eur(DB.end))}
+ DB=fin(DB.tx,{...S,keep:false},DB.open);saveLed();$('#modal').classList.remove('on');keepRender();toast('Buchung gespeichert · Endsaldo '+eur(DB.end))}
+function edel(){if(DB.tx.length<2||!confirm('Diese Buchung wirklich löschen?'))return;DB.tx.splice(EID-1,1);DB=fin(DB.tx,{...S,keep:false},DB.open);saveLed();$('#modal').classList.remove('on');keepRender();toast('Buchung gelöscht · Endsaldo '+eur(DB.end))}
 function detail(id){const t=DB.tx[id-1],wd=new Date(t.y,t.m-1,t.d).toLocaleDateString('de-DE',{weekday:'long'});
  $('#modal').innerHTML=`<div class="sheet"><button class="x" data-close aria-label="Schließen">×</button><small>Buchungsdetails</small><h3>${esc(t.name)}</h3><div class="big ${t.c>0?'p':''}">${sg(t.c)}</div>${dl([['Händler / Partner',esc(t.name)],['Buchungsdatum',wd+', '+dt(t)+', '+p2(Math.floor(t.t/60))+':'+p2(t.t%60)+' Uhr'],['Betrag',sg(t.c)],['Kategorie',esc(t.cat)],['Buchungsart',t.type+' · '+t.meth],['Kontostand nach Buchung',eur(t.bal)],['Verwendungszweck',esc(t.txt)],['Referenz',t.ref]])}</div>`;$('#modal').classList.add('on')}
 const views={dash,tx:txv,acc,card,set};let V='dash';
