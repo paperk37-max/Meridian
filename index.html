@@ -91,12 +91,15 @@ svg{color:#e8eaed}
 .sheet h3{font:500 20px -apple-system,"Segoe UI",sans-serif;color:var(--t)}.sheet .x{color:var(--m)}
 #toast{background:#16171a;border:1px solid #3a3d42;color:var(--t)}
 @media(max-width:899px){.hero{grid-template-columns:1fr;padding:18px;gap:20px}.hero .vcw{order:-1;margin:0 auto}header b{font-size:14px}}
-main{padding-bottom:max(24px,env(safe-area-inset-bottom))}</style></head><body>
+main{padding-bottom:max(24px,env(safe-area-inset-bottom))}#lock{display:none;position:fixed;inset:0;z-index:100;background:#050506;align-items:center;justify-content:center;text-align:center}
+body.locked #lock{display:flex}body.locked header,body.locked #nav,body.locked main,body.locked #modal,body.locked #bd,body.locked #toast{display:none!important}
+.lk{display:grid;gap:8px;justify-items:center;padding:24px}.lk b{font:500 20px -apple-system,sans-serif;letter-spacing:.36em;text-transform:uppercase}.lk .crest{margin:0 0 14px;width:18px;height:18px}
+</style></head><body>
 <header><button id="burger" aria-label="Menü">☰</button><span class="crest"></span><b>Meridian<span>Privatbank</span></b></header>
 <div id="bd"></div>
 <nav id="nav"><button data-go="dash">Dashboard</button><button data-go="tx">Umsätze</button><button data-go="acc">Kontodetails</button><button data-go="card">Visa-Karte</button><button data-go="set">Einstellungen</button></nav>
 <main id="main"></main>
-<div id="modal"></div><div id="toast"></div>
+<div id="modal"></div><div id="toast"></div><div id="lock"><div class="lk"><span class="crest"></span><b>Meridian</b><small>Privatbank</small><button class="btn pri" data-act="unlock" style="margin-top:18px">Mit Face ID entsperren</button><div id="lmsg" class="err" style="font-weight:600;max-width:300px"></div></div></div>
 <script>
 /* ===== DATENLOGIK (alle Beträge in ganzen Cent) ===== */
 const LKEY='pzbd.led',KEY='pzbd.v1',DEF={balance:78493.54,allow:55,min:4800,max:6500,extra:207,start:2023,keep:false};
@@ -220,7 +223,7 @@ const fv=c=>(c/100).toFixed(2).replace('.',',');
 function set(){const f=(k,l,h,v)=>`<label>${l}<input id="s_${k}" inputmode="decimal" value="${v}"><small>${h}</small></label>`;
  return`<h2>Einstellungen</h2><div class="card"><div class="f">${f('balance','Aktueller Gesamtsaldo (€)','Standard: 78.493,54',fv(DB.end))}${f('allow','Taschengeld monatlich (€)','Standard: 55',S.allow)}${f('min','Monatliches Einkommen Minimum (€)','Standard: 4.800',S.min)}${f('max','Monatliches Einkommen Maximum (€)','Standard: 6.500',S.max)}${f('extra','Zusätzlicher Eingang November 2026 (€)','Standard: 207',S.extra)}${f('start','Startjahr der Historie','2015 bis 2025, Verlauf beginnt im November. Standard: 2023',S.start)}
  <div class="btns"><button class="btn pri" data-act="apply">Einstellungen übernehmen</button><button class="btn" data-act="reset">Standardwerte wiederherstellen</button></div><div id="msg"></div></div></div>
- <h2>Buchungen bearbeiten</h2><div class="card"><small>Buchung antippen, um Datum, Händler, Kategorie oder Betrag zu ändern oder sie zu löschen. Der Kontostand passt sich an: Einnahmen erhöhen ihn, Ausgaben senken ihn. Änderungen werden gespeichert.</small><div class="btns" style="margin-top:10px"><button class="btn pri" data-act="eadd">+ Neue Buchung</button></div></div>${flt()}`}
+ <h2>Sicherheit</h2><div class="card"><small>Sperrt die App mit Face ID. Sie sperrt sich automatisch, sobald du sie verlässt.</small><div class="btns" style="margin-top:10px">${LK()?'<button class="btn" data-act="lockoff">Face-ID-Sperre ausschalten</button>':'<button class="btn pri" data-act="lockon">Face-ID-Sperre einschalten</button>'}</div></div><h2>Buchungen bearbeiten</h2><div class="card"><small>Buchung antippen, um Datum, Händler, Kategorie oder Betrag zu ändern oder sie zu löschen. Der Kontostand passt sich an: Einnahmen erhöhen ihn, Ausgaben senken ihn. Änderungen werden gespeichert.</small><div class="btns" style="margin-top:10px"><button class="btn pri" data-act="eadd">+ Neue Buchung</button></div></div>${flt()}`}
 const num=v=>{v=String(v).replace(/[\s€]/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return v===''?NaN:Number(v)};
 function msg(t,err){const m=$('#msg');if(m){m.textContent=t;m.className=err?'err':''}}
 let EID=0;
@@ -270,11 +273,22 @@ function go(v){V=v;document.body.classList.remove('open');render();scrollTo(0,0)
 document.addEventListener('click',e=>{const c=e.target.closest('[data-go],[data-id],[data-t],[data-act],[data-close],#burger,#bd,#modal');if(!c)return;
  if(c.dataset.go)go(c.dataset.go);else if(c.dataset.id)(V=='set'?edit:detail)(+c.dataset.id);
  else if(c.dataset.t!==undefined){Q.t=c.dataset.t;document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b==c));list()}
- else if(c.dataset.act=='apply')apply();else if(c.dataset.act=='reset')reset();else if(c.dataset.act=='esave')esave();else if(c.dataset.act=='edel')edel();else if(c.dataset.act=='eadd')edit(0);
+ else if(c.dataset.act=='apply')apply();else if(c.dataset.act=='unlock')unlock();else if(c.dataset.act=='lockon')lockOn();else if(c.dataset.act=='lockoff')lockOff();else if(c.dataset.act=='reset')reset();else if(c.dataset.act=='esave')esave();else if(c.dataset.act=='edel')edel();else if(c.dataset.act=='eadd')edit(0);
  else if(c.id=='burger')document.body.classList.toggle('open');else if(c.id=='bd')document.body.classList.remove('open');
  else if(c.id=='modal'&&e.target==c||c.dataset.close!==undefined)$('#modal').classList.remove('on')});
 document.addEventListener('input',e=>{if(e.target.id=='q'){Q.q=e.target.value;list()}});
 document.addEventListener('change',e=>{if(e.target.id=='y'){Q.y=e.target.value;list()}if(e.target.id=='s'){Q.s=e.target.value;list()}});
 document.addEventListener('keydown',e=>{if(e.key=='Escape')$('#modal').classList.remove('on')});
+/* ===== FACE-ID-SPERRE (WebAuthn) ===== */
+const LK=()=>{try{return localStorage.getItem('pzbd.lock')}catch(x){return null}};
+const b2u=b=>Uint8Array.from(atob(b.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+const u2b=u=>btoa(String.fromCharCode(...new Uint8Array(u))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const rb=n=>crypto.getRandomValues(new Uint8Array(n));let authing=false;
+async function auth(){authing=true;try{await navigator.credentials.get({publicKey:{challenge:rb(32),rpId:location.hostname,allowCredentials:[{type:'public-key',id:b2u(LK()),transports:['internal','hybrid']}],userVerification:'required',timeout:60000}})}finally{setTimeout(()=>authing=false,1000)}}
+async function unlock(){try{await auth();document.body.classList.remove('locked');$('#lmsg').textContent=''}catch(e){$('#lmsg').textContent='Entsperren nicht möglich ('+(e.name||'Fehler')+'). Bitte erneut versuchen.'}}
+async function lockOn(){authing=true;try{if(!window.PublicKeyCredential)throw{name:'nicht unterstützt'};const c=await navigator.credentials.create({publicKey:{challenge:rb(32),rp:{name:'Meridian',id:location.hostname},user:{id:rb(16),name:'paul',displayName:'Paul Zeismann'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},attestation:'none',timeout:60000}});localStorage.setItem('pzbd.lock',u2b(c.rawId));keepRender();toast('Face-ID-Sperre eingeschaltet.')}catch(e){toast('Einschalten nicht möglich ('+(e.name||'Fehler')+').')}finally{setTimeout(()=>authing=false,1000)}}
+async function lockOff(){try{await auth();localStorage.removeItem('pzbd.lock');keepRender();toast('Sperre ausgeschaltet.')}catch(e){toast('Ausschalten abgebrochen.')}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&LK()&&!authing)document.body.classList.add('locked')});
+if(LK())document.body.classList.add('locked');
 render();
 </script></body></html>
