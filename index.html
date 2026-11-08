@@ -94,10 +94,11 @@ svg{color:#e8eaed}
 main{padding-bottom:max(24px,env(safe-area-inset-bottom))}#lock{display:none;position:fixed;inset:0;z-index:100;background:#050506;align-items:center;justify-content:center;text-align:center}
 body.locked #lock{display:flex}body.locked header,body.locked #nav,body.locked main,body.locked #modal,body.locked #bd,body.locked #toast{display:none!important}
 .lk{display:grid;gap:8px;justify-items:center;padding:24px}.lk b{font:500 20px -apple-system,sans-serif;letter-spacing:.36em;text-transform:uppercase}.lk .crest{margin:0 0 14px;width:18px;height:18px}
+small.n{color:#ff9a90}.row[data-sym] i{border-radius:12px}
 </style></head><body>
 <header><button id="burger" aria-label="Menü">☰</button><span class="crest"></span><b>Meridian<span>Privatbank</span></b></header>
 <div id="bd"></div>
-<nav id="nav"><button data-go="dash">Dashboard</button><button data-go="tx">Umsätze</button><button data-go="acc">Kontodetails</button><button data-go="card">Visa-Karte</button><button data-go="set">Einstellungen</button></nav>
+<nav id="nav"><button data-go="dash">Dashboard</button><button data-go="tx">Umsätze</button><button data-go="dep">Depot</button><button data-go="acc">Kontodetails</button><button data-go="card">Visa-Karte</button><button data-go="set">Einstellungen</button></nav>
 <main id="main"></main>
 <div id="modal"></div><div id="toast"></div><div id="lock"><div class="lk"><span class="crest"></span><b>Meridian</b><small>Privatbank</small><button class="btn pri" data-act="unlock" style="margin-top:18px">Mit Face ID entsperren</button><div id="lmsg" class="err" style="font-weight:600;max-width:300px"></div></div></div>
 <script>
@@ -232,7 +233,7 @@ function saveLed(){LED={tx:DB.tx.map(({y,m,d,t,name,cat,c,meth,txt})=>({y,m,d,t,
 function clearLed(){LED=null;try{localStorage.removeItem(LKEY)}catch(x){}}
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),3500)}
 function keepRender(){const y=scrollY;render();scrollTo(0,y)}
-function reset(){if(LED&&!confirm('Alle Änderungen und eigenen Buchungen verwerfen?'))return;S={...DEF};wr(KEY,S);clearLed();DB=gen(S);Q.y='';render();msg('Standardwerte wiederhergestellt. Endsaldo '+eur(DB.end)+'.')}
+function reset(){if(LED&&!confirm('Alle Änderungen und eigenen Buchungen verwerfen?'))return;S={...DEF};wr(KEY,S);clearLed();depReset();DB=gen(S);Q.y='';render();msg('Standardwerte wiederhergestellt. Endsaldo '+eur(DB.end)+'.')}
 function apply(){const g=k=>num($('#s_'+k).value),n={balance:g('balance'),allow:g('allow'),min:g('min'),max:g('max'),extra:g('extra'),start:Math.round(g('start')),keep:false};let er='';
  if(Object.values(n).some(isNaN))er='Bitte nur gültige Zahlen eingeben, z. B. 5.200,50.';
  else if(n.min<0||n.max<0||n.allow<0||n.extra<0)er='Beträge dürfen nicht negativ sein.';
@@ -242,7 +243,7 @@ function apply(){const g=k=>num($('#s_'+k).value),n={balance:g('balance'),allow:
  const rg=['allow','min','max','extra','start'].some(k=>n[k]!==S[k]);
  if(rg&&LED&&!confirm('Diese Änderung berechnet die Umsatzhistorie neu. Manuelle Buchungsänderungen gehen dabei verloren. Fortfahren?'))return;
  S=n;wr(KEY,S);
- if(rg||!LED){clearLed();DB=gen(S)}else{DB=fin(DB.tx,{...S,keep:e100(S.balance)!==DB.end},DB.open);saveLed()}
+ if(rg||!LED){clearLed();depReset();DB=gen(S)}else{DB=fin(DB.tx,{...S,keep:e100(S.balance)!==DB.end},DB.open);saveLed()}
  Q.y='';render();msg('Einstellungen übernommen. '+DB.tx.length+' Buchungen, Endsaldo '+eur(DB.end)+'.')}
 function edit(id){const t=id?DB.tx[id-1]:(()=>{const n=new Date();return{y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate(),t:n.getHours()*60+n.getMinutes(),name:'',cat:'Einkommen',c:1000,meth:'Überweisung',txt:''}})();EID=id;
  const o=(v,l,sel)=>`<option value="${v}" ${sel?'selected':''}>${l}</option>`;
@@ -265,20 +266,54 @@ function esave(){const d=$('#e_d').value.split('-').map(Number),tm=($('#e_t').va
 function edel(){if(DB.tx.length<2||!confirm('Diese Buchung wirklich löschen?'))return;DB.tx.splice(EID-1,1);DB=fin(DB.tx,{...S,keep:false},DB.open);saveLed();$('#modal').classList.remove('on');keepRender();toast('Buchung gelöscht · Endsaldo '+eur(DB.end))}
 function detail(id){const t=DB.tx[id-1],wd=new Date(t.y,t.m-1,t.d).toLocaleDateString('de-DE',{weekday:'long'});
  $('#modal').innerHTML=`<div class="sheet"><button class="x" data-close aria-label="Schließen">×</button><small>Buchungsdetails</small><h3>${esc(t.name)}</h3><div class="big ${t.c>0?'p':''}">${sg(t.c)}</div>${dl([['Händler / Partner',esc(t.name)],['Buchungsdatum',wd+', '+dt(t)+', '+p2(Math.floor(t.t/60))+':'+p2(t.t%60)+' Uhr'],['Betrag',sg(t.c)],['Kategorie',esc(t.cat)],['Buchungsart',t.type+' · '+t.meth],['Kontostand nach Buchung',eur(t.bal)],['Verwendungszweck',esc(t.txt)],['Referenz',t.ref]])}</div>`;$('#modal').classList.add('on')}
-const views={dash,tx:txv,acc,card,set};let V='dash';
+const views={dash,tx:txv,dep,acc,card,set};let V='dash';
 function render(){$('#main').innerHTML=views[V]();
  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.go==V));if(V=='tx'||V=='set')list()}
 function go(v){V=v;document.body.classList.remove('open');render();scrollTo(0,0)}
 /* ===== EREIGNISSE ===== */
-document.addEventListener('click',e=>{const c=e.target.closest('[data-go],[data-id],[data-t],[data-act],[data-close],#burger,#bd,#modal');if(!c)return;
- if(c.dataset.go)go(c.dataset.go);else if(c.dataset.id)(V=='set'?edit:detail)(+c.dataset.id);
+document.addEventListener('click',e=>{const c=e.target.closest('[data-go],[data-sym],[data-id],[data-t],[data-act],[data-close],#burger,#bd,#modal');if(!c)return;
+ if(c.dataset.go)go(c.dataset.go);else if(c.dataset.id)(V=='set'?edit:detail)(+c.dataset.id);else if(c.dataset.sym)trade(c.dataset.sym);
  else if(c.dataset.t!==undefined){Q.t=c.dataset.t;document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b==c));list()}
- else if(c.dataset.act=='apply')apply();else if(c.dataset.act=='unlock')unlock();else if(c.dataset.act=='lockon')lockOn();else if(c.dataset.act=='lockoff')lockOff();else if(c.dataset.act=='reset')reset();else if(c.dataset.act=='esave')esave();else if(c.dataset.act=='edel')edel();else if(c.dataset.act=='eadd')edit(0);
+ else if(c.dataset.act=='apply')apply();else if(c.dataset.act=='buy'||c.dataset.act=='sell'||c.dataset.act=='all')tdo(c.dataset.act);else if(c.dataset.act=='savm')savm();else if(c.dataset.act=='sdep'||c.dataset.act=='swd')sdo(c.dataset.act);else if(c.dataset.act=='dkey')dkey();else if(c.dataset.act=='unlock')unlock();else if(c.dataset.act=='lockon')lockOn();else if(c.dataset.act=='lockoff')lockOff();else if(c.dataset.act=='reset')reset();else if(c.dataset.act=='esave')esave();else if(c.dataset.act=='edel')edel();else if(c.dataset.act=='eadd')edit(0);
  else if(c.id=='burger')document.body.classList.toggle('open');else if(c.id=='bd')document.body.classList.remove('open');
  else if(c.id=='modal'&&e.target==c||c.dataset.close!==undefined)$('#modal').classList.remove('on')});
 document.addEventListener('input',e=>{if(e.target.id=='q'){Q.q=e.target.value;list()}});
 document.addEventListener('change',e=>{if(e.target.id=='y'){Q.y=e.target.value;list()}if(e.target.id=='s'){Q.s=e.target.value;list()}});
 document.addEventListener('keydown',e=>{if(e.key=='Escape')$('#modal').classList.remove('on')});
+/* ===== DEPOT (virtuell) ===== */
+const STK=[['AAPL','Apple',295],['MSFT','Microsoft',345],['NVDA','NVIDIA',175],['AMZN','Amazon',195],['GOOGL','Alphabet',250],['TSLA','Tesla',280],['META','Meta',520],['SAP','SAP',137]],SAVR=3.6,DK='pzbd.dep';
+let DEP={pos:{},sav:{b:0,t:Date.now(),in:0},px:{},ref:{},key:'',fx:1.15,live:false,rd:''};
+try{Object.assign(DEP,JSON.parse(localStorage.getItem(DK)||'{}'))}catch(x){}
+const dsave=()=>wr(DK,DEP),px=k=>DEP.px[k]||STK.find(a=>a[0]==k)[2],sav=()=>DEP.sav.b*Math.pow(1+SAVR/100,(Date.now()-DEP.sav.t)/31557600000);
+function depReset(){DEP.pos={};DEP.sav={b:0,t:Date.now(),in:0};dsave()}
+function dayRef(){if(DEP.rd!=today()){DEP.rd=today();DEP.ref={};STK.forEach(([k])=>DEP.ref[k]=px(k))}}
+function book(name,cat,c,meth,txt){const n=new Date();DB.tx.push({y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate(),t:n.getHours()*60+n.getMinutes(),name,cat,c,meth,txt});DB=fin(DB.tx,{...S,keep:false},DB.open);saveLed()}
+function stRows(){return STK.map(([k,n])=>{const p=px(k),P=DEP.pos[k],ch=p/(DEP.ref[k]||p)-1;return`<div class="row" data-sym="${k}"><i>${n[0]}</i><div class="m"><b>${n}</b><small>${k}${P?' · '+P.q.toFixed(3)+' Stk.':''}</small></div><div class="a">${eur(Math.round(p*100))}<small class="${ch>=0?'p':'n'}">${ch>=0?'+':'−'}${Math.abs(ch*100).toFixed(2).replace('.',',')} %</small></div></div>`}).join('')}
+function sumHtml(){let v=0,c=0;for(const k in DEP.pos){v+=DEP.pos[k].q*px(k)*100;c+=DEP.pos[k].cost}const sv=sav(),pl=v-c;
+ return`<div class="grid"><div class="card"><small>Aktiendepot</small><b>${eur(Math.round(v))}</b><small class="${pl>=0?'p':'n'}">${pl>=0?'+':'−'}${eur(Math.abs(Math.round(pl)))} seit Kauf</small></div><div class="card"><small>Spardepot</small><b>${eur(Math.round(sv))}</b><small class="p">+${eur(Math.round(sv*SAVR/36500))} pro Tag</small></div><div class="card"><small>Depots gesamt</small><b>${eur(Math.round(v+sv))}</b></div></div>`}
+function dep(){return`<h2>Depot</h2><div id="dsum">${sumHtml()}</div><h2>Aktien</h2><div class="card" id="stocks">${stRows()}</div><small>${DEP.live?'Live-Kurse über Finnhub, in Euro umgerechnet.':'Simulierte Kurse, keine Echtzeitdaten. Startwerte ungefähr.'} Alle Käufe sind virtuell und werden über dein Konto gebucht.</small>
+<h2>Spardepot</h2><div class="card"><b>Festzins ${String(SAVR.toFixed(2)).replace('.',',')} % p. a.</b><br><small>Der Wert steigt jeden Tag, ohne Schwankung.</small><div class="btns" style="margin-top:12px"><button class="btn pri" data-act="savm">Einzahlen / Auszahlen</button></div></div>
+<h2>Kursquelle</h2><div class="card"><div class="f" style="max-width:none"><label>Finnhub-API-Schlüssel (optional)<input id="d_key" autocomplete="off" value="${esc(DEP.key)}"><small>Kostenlos auf finnhub.io. Damit lädt die App echte US-Kurse.</small></label><label>EUR/USD-Kurs<input id="d_fx" inputmode="decimal" value="${String(DEP.fx).replace('.',',')}"><small>Zum Umrechnen der Live-Kurse in Euro.</small></label><div class="btns"><button class="btn" data-act="dkey">Speichern</button></div></div></div>`}
+function paint(){if(V=='dep'&&!$('#modal').classList.contains('on')){$('#stocks').innerHTML=stRows();$('#dsum').innerHTML=sumHtml()}}
+async function live(){if(!DEP.key)return;try{let ok=0;for(const[k]of STK){const j=await(await fetch('https://finnhub.io/api/v1/quote?symbol='+k+'&token='+encodeURIComponent(DEP.key))).json();if(j.c>0){DEP.px[k]=j.c/DEP.fx;if(j.pc>0)DEP.ref[k]=j.pc/DEP.fx;ok++}}DEP.live=ok>0}catch(e){DEP.live=false}dsave();paint()}
+function dkey(){DEP.key=$('#d_key').value.trim();const f=num($('#d_fx').value);if(f>0)DEP.fx=f;dsave();live();toast(DEP.key?'Gespeichert. Lade Live-Kurse …':'Gespeichert. Es laufen simulierte Kurse.')}
+let TS='';
+function trade(k){TS=k;const n=STK.find(a=>a[0]==k)[1],p=px(k),P=DEP.pos[k];
+ $('#modal').innerHTML=`<div class="sheet"><button class="x" data-close aria-label="Schließen">×</button><small>${k}</small><h3>${n}</h3><div class="big">${eur(Math.round(p*100))}</div>${dl([['Bestand',P?P.q.toFixed(4)+' Stk. ≈ '+eur(Math.round(P.q*p*100)):'–'],['Verfügbar',eur(DB.end)]])}<div class="f" style="max-width:none;margin-top:12px"><label>Betrag (€)<input id="t_a" inputmode="decimal" placeholder="z. B. 500,00"></label><div class="btns"><button class="btn pri" data-act="buy">Kaufen</button><button class="btn" data-act="sell">Verkaufen</button>${P?'<button class="btn" data-act="all">Alles verkaufen</button>':''}</div><div id="tmsg" class="err" style="font-weight:600"></div></div></div>`;$('#modal').classList.add('on')}
+function tdo(m){const k=TS,n=STK.find(a=>a[0]==k)[1],p=px(k),P=DEP.pos[k]||{q:0,cost:0},E=t=>$('#tmsg').textContent=t;
+ const a=m=='all'?Math.round(P.q*p*100):Math.round(num($('#t_a').value)*100);if(!(a>0))return E('Bitte einen Betrag eingeben.');
+ let q=m=='all'?P.q:a/100/p;
+ if(m=='buy'){if(a>DB.end)return E('Nicht genug Guthaben auf dem Konto.');DEP.pos[k]={q:P.q+q,cost:P.cost+a}}
+ else{if(q>P.q+.01/p)return E('So viel besitzt du nicht.');q=Math.min(q,P.q);DEP.pos[k]={q:P.q-q,cost:P.cost*(1-q/P.q)};if(DEP.pos[k].q<1e-6)delete DEP.pos[k]}
+ book('Depot · '+n,'Wertpapiere',m=='buy'?-a:a,'Überweisung',(m=='buy'?'Kauf ':'Verkauf ')+q.toFixed(4)+' Stk. '+n+' zu '+eur(Math.round(p*100)));
+ dsave();$('#modal').classList.remove('on');keepRender();toast((m=='buy'?'Gekauft: ':'Verkauft: ')+eur(a))}
+function savm(){$('#modal').innerHTML=`<div class="sheet"><button class="x" data-close aria-label="Schließen">×</button><small>Spardepot · Festzins ${SAVR} % p. a.</small><h3>Spardepot</h3><div class="big p">${eur(Math.round(sav()))}</div>${dl([['Verfügbar auf dem Konto',eur(DB.end)],['Zuwachs pro Tag','+'+eur(Math.round(sav()*SAVR/36500))]])}<div class="f" style="max-width:none;margin-top:12px"><label>Betrag (€)<input id="t_a" inputmode="decimal" placeholder="z. B. 1.000,00"></label><div class="btns"><button class="btn pri" data-act="sdep">Einzahlen</button><button class="btn" data-act="swd">Auszahlen</button></div><div id="tmsg" class="err" style="font-weight:600"></div></div></div>`;$('#modal').classList.add('on')}
+function sdo(m){const a=Math.round(num($('#t_a').value)*100),v=sav(),E=t=>$('#tmsg').textContent=t;if(!(a>0))return E('Bitte einen Betrag eingeben.');
+ if(m=='sdep'){if(a>DB.end)return E('Nicht genug Guthaben auf dem Konto.');DEP.sav={b:v+a,t:Date.now(),in:(DEP.sav.in||0)+a}}
+ else{if(a>v+1)return E('So viel liegt nicht im Spardepot.');DEP.sav={b:Math.max(0,v-a),t:Date.now(),in:Math.max(0,(DEP.sav.in||0)-a)}}
+ book('Spardepot','Sparen',m=='sdep'?-a:a,'Überweisung',m=='sdep'?'Übertrag auf das Spardepot':'Auszahlung vom Spardepot');
+ dsave();$('#modal').classList.remove('on');keepRender();toast(m=='sdep'?'Eingezahlt: '+eur(a):'Ausgezahlt: '+eur(a))}
+dayRef();live();setInterval(()=>{dayRef();if(!DEP.live)STK.forEach(([k])=>DEP.px[k]=Math.max(1,px(k)*(1+(Math.random()-.5)*.003)));dsave();paint()},5000);setInterval(live,60000);
 /* ===== FACE-ID-SPERRE (WebAuthn) ===== */
 const LK=()=>{try{return localStorage.getItem('pzbd.lock')}catch(x){return null}};
 const b2u=b=>Uint8Array.from(atob(b.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
